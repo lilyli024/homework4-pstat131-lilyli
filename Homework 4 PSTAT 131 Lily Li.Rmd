@@ -1,0 +1,39 @@
+---
+title: 'PSTAT 131: Homework 4: Resampling'
+author: "Lily Li"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message=FALSE}
+library(tidytext)
+library(dplyr)
+library(tidymodels)
+library(readr)
+library(ggpubr)
+library(corrplot)
+library(discrim)
+library(klaR)
+tidymodels_prefer()
+titanic_info <- read.csv("~/Downloads/homework-3/data/titanic.csv") %>%
+  mutate(survived=factor(survived, levels=c("Yes","No")), pclass=factor(pclass))
+
+# create a recipe
+titanic_recipe <- recipe(survived ~ pclass + sex + age + sib_sp + parch + fare, data = titanic_train) %>%
+  step_impute_linear(age, impute_with = imp_vars(sib_sp)) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_interact( ~ starts_with("sex"):fare + age:fare) # interactions between: sex and fare, age and fare
+# should use starts_with for dummy variables
+```
+### Q1 Stratified sampling for training and testing data sets
+```{r}
+set.seed(9)
+titanic_split <- initial_split(titanic_info, prop = 0.80,
+                                strata = survived)
+titanic_train <- training(titanic_split)
+titanic_test <- testing(titanic_split)
+```
+### Q2 Use k-fold cross-validation on training data with k=10
