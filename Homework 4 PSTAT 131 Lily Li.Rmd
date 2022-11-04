@@ -9,31 +9,28 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r, message=FALSE}
-library(tidytext)
-library(dplyr)
 library(tidymodels)
-library(readr)
-library(ggpubr)
-library(corrplot)
-library(discrim)
-library(klaR)
+library(tidyverse)
 tidymodels_prefer()
 titanic_info <- read.csv("~/Downloads/homework-3/data/titanic.csv") %>%
   mutate(survived=factor(survived, levels=c("Yes","No")), pclass=factor(pclass))
-
-# create a recipe
-titanic_recipe <- recipe(survived ~ pclass + sex + age + sib_sp + parch + fare, data = titanic_train) %>%
-  step_impute_linear(age, impute_with = imp_vars(sib_sp)) %>%
-  step_dummy(all_nominal_predictors()) %>%
-  step_interact( ~ starts_with("sex"):fare + age:fare) # interactions between: sex and fare, age and fare
-# should use starts_with for dummy variables
 ```
 ### Q1 Stratified sampling for training and testing data sets
 ```{r}
 set.seed(9)
-titanic_split <- initial_split(titanic_info, prop = 0.80,
-                                strata = survived)
+titanic_split <- initial_split(titanic_info, prop = 0.7, strata = survived)
 titanic_train <- training(titanic_split)
 titanic_test <- testing(titanic_split)
+dim(titanic_train) # contains 623/891 of observations
+dim(titanic_test) # # contains 268/891 of observations
 ```
 ### Q2 Use k-fold cross-validation on training data with k=10
+```{r}
+Auto_folds <- vfold_cv(titanic_train, v = 10)
+```
+### Q3 Using k-fold cross-validation
+Explain what we are doing in Question 2. What is k-fold cross-validation? Why should we use it, rather than simply fitting and testing models on the entire training set? If we did use the entire training set, what resampling method would that be?
+
+K-fold cross-validation is a resampling method used in machine learning when we have a limited amount of data. The k refers to the number of samples/subsets to train a model and allows us to produce a more generalized model since the model is validated for every fold. K-fold cross-validation is the optimal procedure to follow compared to leave-one-out cross-validation, which is used for small datasets (one model is evaluated for each data point of the training set; k=n), and validation set approach, which is only valid for very large datasets (large amounts of data for each group of training and validation; we fit/test models to the entire training set). Splitting data using k-folds reduces bias in selection of training and testing sets and reduces overfitting.
+
+### Q4 Set up workflows for 3 models
