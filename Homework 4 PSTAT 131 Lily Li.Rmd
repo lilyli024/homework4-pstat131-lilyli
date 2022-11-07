@@ -75,7 +75,7 @@ qda_wkflow <- workflow() %>%
 
 30 folds total will be fitted to the data: 10 folds for each model.
 
-## Q5. Fit each model to the folded data
+### Q5. Fit each model to the folded data
 
 ```{r}
 degree_grid <- grid_regular(degree(range = c(1, 10)), levels = 10)
@@ -121,7 +121,7 @@ write_rds(tune_log, "~/Desktop/PSTAT 131/homework4-pstat131-lilyli/log_model.rds
 write_rds(tune_log, "~/Desktop/PSTAT 131/homework4-pstat131-lilyli/lda_model.rds")
 write_rds(tune_log, "~/Desktop/PSTAT 131/homework4-pstat131-lilyli/qda_model.rds")
 ```
-## Q6.
+### Q6.
 ```{r}
 collect_metrics(tune_log)
 collect_metrics(tune_lda)
@@ -130,13 +130,13 @@ collect_metrics(tune_qda) # performed the best with lowest standard error
 
 For classification models, accuracy tells us the proportion of correct predictions, and AUC ROC tells us the ability of the model to distinguish between binary classes (whether a titanic passenger survived or not). The ROC curve shows a trade-off between the true positive rate and false positive rate. However, it is important to look at error in factor analysis by looking for low standard error. The QDA model performed the best with lowest standard error (also had the highest accuracy on the entire training data and the testing data compared to the other models)
 
-## Q7. Fit chosen model to entire training dataset
+### Q7. Fit chosen model to entire training dataset
 ```{r}
 qda_ac <- predict(qda_fit, new_data = titanic_train, type = "class") %>%
   bind_cols(dplyr::select(titanic_train, survived)) %>%
   accuracy(truth = survived, estimate = .pred_class)
 ```
-## Q8. Assess model performance on the testing data
+### Q8. Assess model performance on the testing data
 ```{r}
 predict(qda_fit, new_data = titanic_test, type = "class") %>%
   bind_cols(titanic_test %>% dplyr::select(survived)) %>%

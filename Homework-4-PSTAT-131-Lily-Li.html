@@ -448,8 +448,8 @@ qda_wkflow &lt;- workflow() %&gt;%
 <p>30 folds total will be fitted to the data: 10 folds for each
 model.</p>
 </div>
-<div id="q5.-fit-each-model-to-the-folded-data" class="section level2">
-<h2>Q5. Fit each model to the folded data</h2>
+<div id="q5.-fit-each-model-to-the-folded-data" class="section level3">
+<h3>Q5. Fit each model to the folded data</h3>
 <pre class="r"><code>degree_grid &lt;- grid_regular(degree(range = c(1, 10)), levels = 10)
 
 # logistic regression
@@ -508,8 +508,8 @@ write_rds(tune_log, &quot;~/Desktop/PSTAT 131/homework4-pstat131-lilyli/log_mode
 write_rds(tune_log, &quot;~/Desktop/PSTAT 131/homework4-pstat131-lilyli/lda_model.rds&quot;)
 write_rds(tune_log, &quot;~/Desktop/PSTAT 131/homework4-pstat131-lilyli/qda_model.rds&quot;)</code></pre>
 </div>
-<div id="q6." class="section level2">
-<h2>Q6.</h2>
+<div id="q6." class="section level3">
+<h3>Q6.</h3>
 <pre class="r"><code>collect_metrics(tune_log)</code></pre>
 <pre><code>## # A tibble: 20 × 7
 ##    degree .metric  .estimator  mean     n std_err .config              
@@ -592,14 +592,14 @@ performed the best with lowest standard error (also had the highest
 accuracy on the entire training data and the testing data compared to
 the other models)</p>
 </div>
-<div id="q7.-fit-chosen-model-to-entire-training-dataset" class="section level2">
-<h2>Q7. Fit chosen model to entire training dataset</h2>
+<div id="q7.-fit-chosen-model-to-entire-training-dataset" class="section level3">
+<h3>Q7. Fit chosen model to entire training dataset</h3>
 <pre class="r"><code>qda_ac &lt;- predict(qda_fit, new_data = titanic_train, type = &quot;class&quot;) %&gt;%
   bind_cols(dplyr::select(titanic_train, survived)) %&gt;%
   accuracy(truth = survived, estimate = .pred_class)</code></pre>
 </div>
-<div id="q8.-assess-model-performance-on-the-testing-data" class="section level2">
-<h2>Q8. Assess model performance on the testing data</h2>
+<div id="q8.-assess-model-performance-on-the-testing-data" class="section level3">
+<h3>Q8. Assess model performance on the testing data</h3>
 <pre class="r"><code>predict(qda_fit, new_data = titanic_test, type = &quot;class&quot;) %&gt;%
   bind_cols(titanic_test %&gt;% dplyr::select(survived)) %&gt;%
   accuracy(truth = survived, estimate = .pred_class)</code></pre>
