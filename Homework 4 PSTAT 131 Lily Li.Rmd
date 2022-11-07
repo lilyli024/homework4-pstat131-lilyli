@@ -13,6 +13,7 @@ library(tidymodels)
 library(tidyverse)
 library(discrim)
 library(dplyr)
+library(readr)
 tidymodels_prefer()
 titanic_info <- read.csv("~/Downloads/homework-3/data/titanic.csv") %>%
   mutate(survived=factor(survived, levels=c("Yes","No")), pclass=factor(pclass))
@@ -24,7 +25,7 @@ titanic_split <- initial_split(titanic_info, prop = 0.7, strata = survived)
 titanic_train <- training(titanic_split)
 titanic_test <- testing(titanic_split)
 dim(titanic_train) # contains 623/891 of observations
-dim(titanic_test) # # contains 268/891 of observations
+dim(titanic_test) # contains 268/891 of observations
 ```
 ### Q2 Use k-fold cross-validation on training data with k=10
 ```{r}
@@ -74,7 +75,7 @@ qda_wkflow <- workflow() %>%
 
 30 folds total will be fitted to the data: 10 folds for each model.
 
-## Q5. Fit each modelto the folded data
+## Q5. Fit each model to the folded data
 
 ```{r}
 degree_grid <- grid_regular(degree(range = c(1, 10)), levels = 10)
@@ -85,7 +86,8 @@ tune_log <- tune_grid(
   resamples = titanic_folds, 
   grid = degree_grid
 )
-show_best(tune_log, metric = "accuracy")
+
+show_best(tune_log, metric = "accuracy") # accuracy metric has a lower standard error
 show_best(tune_log, metric = "roc_auc")
 
 best_deg_log <- select_by_one_std_err(tune_log, degree, metric = "accuracy")
@@ -113,31 +115,37 @@ tune_qda <- tune_grid(
 best_deg_qda <- select_by_one_std_err(tune_qda, degree, metric = "accuracy")
 final_qda <- finalize_workflow(qda_wkflow, best_deg_qda)
 qda_fit <- fit(final_qda, titanic_train)
+
+# store results
+write_rds(tune_log, "~/Desktop/PSTAT 131/homework4-pstat131-lilyli/log_model.rds")
+write_rds(tune_log, "~/Desktop/PSTAT 131/homework4-pstat131-lilyli/lda_model.rds")
+write_rds(tune_log, "~/Desktop/PSTAT 131/homework4-pstat131-lilyli/qda_model.rds")
 ```
 ## Q6.
 ```{r}
 collect_metrics(tune_log)
 collect_metrics(tune_lda)
-collect_metrics(tune_qda) # high performance metrics w/ low standard error
+collect_metrics(tune_qda) # performed the best with lowest standard error
 ```
+
+For classification models, accuracy tells us the proportion of correct predictions, and AUC ROC tells us the ability of the model to distinguish between binary classes (whether a titanic passenger survived or not). The ROC curve shows a trade-off between the true positive rate and false positive rate. However, it is important to look at error in factor analysis by looking for low standard error. The QDA model performed the best with lowest standard error (also had the highest accuracy on the entire training data and the testing data compared to the other models)
+
 ## Q7. Fit chosen model to entire training dataset
 ```{r}
 qda_ac <- predict(qda_fit, new_data = titanic_train, type = "class") %>%
   bind_cols(dplyr::select(titanic_train, survived)) %>%
   accuracy(truth = survived, estimate = .pred_class)
 ```
-## Q8. Use predict(), bind_cols(), and accuracy() to assess your model’s performance on the testing data
+## Q8. Assess model performance on the testing data
 ```{r}
 predict(qda_fit, new_data = titanic_test, type = "class") %>%
-  bind_cols(titanic_test %>% select(survived)) %>%
+  bind_cols(titanic_test %>% dplyr::select(survived)) %>%
   accuracy(truth = survived, estimate = .pred_class)
 
 qda_results <- augment(qda_fit, new_data = titanic_test)
 
 qda_results %>%
   roc_auc(survived, .pred_Yes)
-
-collect_metrics(tune_qda) %>%
-  filter(.metric=="accuracy")
 ```
 
+Accuracy across all folds is 0.8089862 compared to testing data accuracy 0.7686567, which is much lower and suggests overfitting of the model. 
