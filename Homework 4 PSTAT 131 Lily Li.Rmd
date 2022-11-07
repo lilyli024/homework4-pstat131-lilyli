@@ -11,6 +11,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r, message=FALSE}
 library(tidymodels)
 library(tidyverse)
+library(discrim)
+library(dplyr)
 tidymodels_prefer()
 titanic_info <- read.csv("~/Downloads/homework-3/data/titanic.csv") %>%
   mutate(survived=factor(survived, levels=c("Yes","No")), pclass=factor(pclass))
@@ -26,7 +28,7 @@ dim(titanic_test) # # contains 268/891 of observations
 ```
 ### Q2 Use k-fold cross-validation on training data with k=10
 ```{r}
-Auto_folds <- vfold_cv(titanic_train, v = 10)
+titanic_folds <- vfold_cv(titanic_train, v = 10)
 ```
 ### Q3 Using k-fold cross-validation
 Explain what we are doing in Question 2. What is k-fold cross-validation? Why should we use it, rather than simply fitting and testing models on the entire training set? If we did use the entire training set, what resampling method would that be?
@@ -34,3 +36,108 @@ Explain what we are doing in Question 2. What is k-fold cross-validation? Why sh
 K-fold cross-validation is a resampling method used in machine learning when we have a limited amount of data. The k refers to the number of samples/subsets to train a model and allows us to produce a more generalized model since the model is validated for every fold. K-fold cross-validation is the optimal procedure to follow compared to leave-one-out cross-validation, which is used for small datasets (one model is evaluated for each data point of the training set; k=n), and validation set approach, which is only valid for very large datasets (large amounts of data for each group of training and validation; we fit/test models to the entire training set). Splitting data using k-folds reduces bias in selection of training and testing sets and reduces overfitting.
 
 ### Q4 Set up workflows for 3 models
+```{r}
+# create a recipe
+titanic_recipe <- recipe(survived ~ pclass + sex + age + sib_sp + parch + fare, data = titanic_train) %>%
+  step_impute_linear(age, impute_with = imp_vars(sib_sp)) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_interact( ~ starts_with("sex"):fare + age:fare)  %>%# interactions between: sex and fare, age and fare
+  step_poly(degree = tune())
+
+# logistic regression
+log_reg <- logistic_reg() %>% 
+  set_engine("glm") %>% 
+  set_mode("classification")
+
+log_wkflow <- workflow() %>% 
+  add_model(log_reg) %>% 
+  add_recipe(titanic_recipe)
+
+# linear discriminant analysis with the MASS engine
+lda_mod <- discrim_linear() %>% 
+  set_mode("classification") %>% 
+  set_engine("MASS")
+
+lda_wkflow <- workflow() %>% 
+  add_model(lda_mod) %>% 
+  add_recipe(titanic_recipe)
+
+# quadratic discriminant analysis with the MASS engine
+qda_mod <- discrim_quad() %>% 
+  set_mode("classification") %>% 
+  set_engine("MASS")
+
+qda_wkflow <- workflow() %>% 
+  add_model(qda_mod) %>% 
+  add_recipe(titanic_recipe)
+```
+
+30 folds total will be fitted to the data: 10 folds for each model.
+
+## Q5. Fit each modelto the folded data
+
+```{r}
+degree_grid <- grid_regular(degree(range = c(1, 10)), levels = 10)
+
+# logistic regression
+tune_log <- tune_grid(
+  object = log_wkflow, 
+  resamples = titanic_folds, 
+  grid = degree_grid
+)
+show_best(tune_log, metric = "accuracy")
+show_best(tune_log, metric = "roc_auc")
+
+best_deg_log <- select_by_one_std_err(tune_log, degree, metric = "accuracy")
+final_log <- finalize_workflow(log_wkflow, best_deg_log)
+log_fit <- fit(final_log, titanic_train)
+
+# LDA
+tune_lda <- tune_grid(
+  object = lda_wkflow, 
+  resamples = titanic_folds, 
+  grid = degree_grid
+)
+
+best_deg_lda <- select_by_one_std_err(tune_lda, degree, metric = "accuracy")
+final_lda <- finalize_workflow(lda_wkflow, best_deg_lda)
+lda_fit <- fit(final_lda, titanic_train)
+
+# QDA
+tune_qda <- tune_grid(
+  object = qda_wkflow, 
+  resamples = titanic_folds, 
+  grid = degree_grid
+)
+
+best_deg_qda <- select_by_one_std_err(tune_qda, degree, metric = "accuracy")
+final_qda <- finalize_workflow(qda_wkflow, best_deg_qda)
+qda_fit <- fit(final_qda, titanic_train)
+```
+## Q6.
+```{r}
+collect_metrics(tune_log)
+collect_metrics(tune_lda)
+collect_metrics(tune_qda) # high performance metrics w/ low standard error
+```
+## Q7. Fit chosen model to entire training dataset
+```{r}
+qda_ac <- predict(qda_fit, new_data = titanic_train, type = "class") %>%
+  bind_cols(dplyr::select(titanic_train, survived)) %>%
+  accuracy(truth = survived, estimate = .pred_class)
+```
+## Q8. Use predict(), bind_cols(), and accuracy() to assess your model’s performance on the testing data
+```{r}
+predict(qda_fit, new_data = titanic_test, type = "class") %>%
+  bind_cols(titanic_test %>% select(survived)) %>%
+  accuracy(truth = survived, estimate = .pred_class)
+
+qda_results <- augment(qda_fit, new_data = titanic_test)
+
+qda_results %>%
+  roc_auc(survived, .pred_Yes)
+
+collect_metrics(tune_qda) %>%
+  filter(.metric=="accuracy")
+```
+
